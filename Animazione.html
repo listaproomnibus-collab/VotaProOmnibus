@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#000020">
+<title>Pro Omnibus — DVD Vote Animation</title>
+<style>
+  :root {
+    --night: #000020;
+    --night2: #08032d;
+    --purple: #bb59f1;
+    --purple2: #8f32d5;
+    --lime: #c8ff00;
+    --white: #f7f6ff;
+    --muted: #c5bddb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--night); color:var(--white); font-family:Arial, Helvetica, sans-serif; }
+  body { background: radial-gradient(ellipse at 50% 45%, #150749 0%, #08032a 47%, #000018 100%); }
+  #stage { position:relative; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; touch-action:manipulation; }
+  #fx { position:absolute; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+  .wash { position:absolute; inset:-18%; pointer-events:none; opacity:.7; z-index:0; background:radial-gradient(ellipse at 0% 0%,rgba(177,57,247,.18),transparent 31%),radial-gradient(ellipse at 100% 100%,rgba(200,255,0,.12),transparent 25%); animation:wash 10s ease-in-out infinite alternate; }
+  @keyframes wash { to { transform:translate3d(1.7%, -1.1%, 0) scale(1.04); opacity:.95; } }
+  .frame { position:absolute; inset:17px; z-index:1; border:1px solid rgba(187,89,241,.52); pointer-events:none; }
+  .frame:before,.frame:after { content:""; position:absolute; width:80px; height:4px; background:var(--lime); box-shadow:0 0 18px rgba(200,255,0,.38); transform:rotate(-38deg); }
+  .frame:before { top:17px; left:-16px; }
+  .frame:after { bottom:17px; right:-16px; }
+  .topline { position:absolute; top:35px; left:0; width:100%; z-index:2; display:flex; justify-content:center; gap:12px; align-items:center; padding:0 22px; text-align:center; color:rgba(247,246,255,.58); font-size:clamp(9px,1.15vw,13px); font-weight:800; letter-spacing:.28em; }
+  .topline .dot { width:6px; height:6px; flex:none; border-radius:50%; background:var(--lime); box-shadow:0 0 13px var(--lime); }
+  #dvd {
+    position:absolute; left:0; top:0; width:clamp(155px, 22vw, 250px); aspect-ratio:1.72;
+    display:flex; flex-direction:column; justify-content:center; align-items:center; gap:5px;
+    border:2px solid var(--purple); border-radius:10px 21px 10px 21px; padding:10px 15px;
+    background:linear-gradient(145deg,rgba(32,8,67,.95),rgba(0,0,32,.97));
+    color:var(--white); font-size:clamp(16px,2.5vw,27px); line-height:.92; font-weight:1000; letter-spacing:.035em;
+    text-align:center; box-shadow:0 0 17px rgba(187,89,241,.25), inset 0 0 24px rgba(187,89,241,.12);
+    will-change:transform; z-index:3; overflow:hidden;
+  }
+  #dvd:before { content:""; position:absolute; left:-18%; top:-25%; width:75%; height:38%; transform:rotate(-30deg); background:var(--purple); opacity:.75; }
+  #dvd:after { content:""; position:absolute; right:-20%; bottom:-25%; width:78%; height:35%; transform:rotate(-30deg); background:var(--lime); opacity:.9; }
+  #dvd .dvd-main { position:relative; z-index:1; }
+  #dvd .dvd-sub { position:relative; z-index:1; color:var(--lime); font-size:.42em; letter-spacing:.28em; }
+  #dvd .under { position:relative; z-index:1; height:3px; width:70%; margin-top:3px; background:linear-gradient(90deg,transparent,var(--lime),var(--purple),transparent); }
+  #hint { position:absolute; bottom:42px; width:100%; z-index:2; text-align:center; color:rgba(247,246,255,.72); font-size:clamp(10px,1.2vw,13px); letter-spacing:.18em; font-weight:800; text-transform:uppercase; padding:0 18px; }
+  #hint b { color:var(--lime); }
+  .progress { position:absolute; bottom:27px; left:50%; transform:translateX(-50%); width:min(280px,56vw); height:2px; z-index:2; background:rgba(187,89,241,.2); overflow:hidden; }
+  #progressFill { height:100%; width:0%; background:linear-gradient(90deg,var(--purple),var(--lime)); box-shadow:0 0 12px var(--lime); }
+  #flash { position:absolute; inset:0; background:var(--lime); opacity:0; pointer-events:none; z-index:5; }
+  #flash.pop { animation:flash .75s ease-out forwards; }
+  @keyframes flash { 0%{opacity:0} 10%{opacity:.95} 100%{opacity:0} }
+  #posterWrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:clamp(22px,5vw,64px); z-index:6; opacity:0; visibility:hidden; pointer-events:none; }
+  #posterWrap.show { opacity:1; visibility:visible; pointer-events:auto; }
+  #poster {
+    position:relative; overflow:hidden; width:min(900px,95vw); max-height:90vh; padding:clamp(24px,5.3vw,67px) clamp(20px,5.5vw,70px);
+    display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:clamp(10px,2vh,20px);
+    background:linear-gradient(145deg,rgba(9,2,42,.99),rgba(0,0,27,.99)); border:1px solid rgba(187,89,241,.85);
+    box-shadow:0 0 0 6px rgba(187,89,241,.06), 0 0 60px rgba(143,50,213,.28), 0 26px 90px rgba(0,0,0,.65);
+    transform:translateY(30px) scale(.78) rotate(-1deg); filter:blur(8px);
+    transition:transform .8s cubic-bezier(.16,1,.3,1), filter .65s ease;
+  }
+  #posterWrap.show #poster { transform:translateY(0) scale(1) rotate(0); filter:blur(0); }
+  #poster:before { content:""; position:absolute; left:-12%; top:8%; width:75%; height:14%; transform:rotate(-9deg); background:var(--purple); clip-path:polygon(0 20%,100% 0,95% 70%,5% 100%); opacity:.88; z-index:0; }
+  #poster:after { content:""; position:absolute; right:-10%; bottom:10%; width:65%; height:12%; transform:rotate(-9deg); background:var(--lime); clip-path:polygon(0 5%,100% 0,95% 70%,5% 100%); opacity:.92; z-index:0; }
+  #poster > * { position:relative; z-index:1; }
+  .eyebrow { color:var(--white); font-size:clamp(9px,1.35vw,14px); font-weight:900; letter-spacing:.24em; line-height:1.5; }
+  .eyebrow span { color:var(--lime); }
+  h1 { margin:0; text-transform:uppercase; font-size:clamp(47px,10vw,112px); line-height:.82; letter-spacing:-.065em; font-weight:1000; color:var(--white); text-shadow:5px 4px 0 rgba(187,89,241,.65); }
+  h1 span { display:block; color:var(--lime); text-shadow:5px 4px 0 rgba(187,89,241,.58); }
+  .slash { width:min(440px,75%); height:7px; margin:2px 0; background:var(--purple); clip-path:polygon(0 35%,100% 0,93% 52%,10% 100%); transform:rotate(-1.5deg); }
+  .tagline { margin:0; font-size:clamp(16px,2.7vw,28px); font-weight:800; line-height:1.18; }
+  .tagline em { color:var(--purple); font-style:normal; }
+  .vote { margin-top:4px; padding:10px clamp(18px,4vw,40px); color:var(--night); font-size:clamp(22px,5vw,50px); font-weight:1000; letter-spacing:.035em; background:var(--lime); clip-path:polygon(2% 8%,99% 0,96% 90%,0 100%); transform:rotate(-1deg); }
+  .subvote { margin:0; color:var(--purple); font-size:clamp(12px,1.8vw,18px); font-weight:1000; letter-spacing:.2em; }
+  .candidate { margin-top:2px; color:rgba(247,246,255,.74); font-weight:800; font-size:clamp(9px,1.3vw,13px); letter-spacing:.14em; }
+  #controls { position:absolute; right:30px; bottom:24px; display:flex; gap:8px; z-index:12; opacity:.23; transition:opacity .2s; }
+  #controls:hover,#controls:focus-within { opacity:1; }
+  button { cursor:pointer; border:1px solid rgba(187,89,241,.7); border-radius:999px; padding:9px 13px; background:rgba(8,3,45,.9); color:var(--white); font-size:11px; font-weight:800; letter-spacing:.04em; }
+  button:hover { border-color:var(--lime); color:var(--lime); }
+  .cornerGlow { position:absolute; width:180px; height:180px; opacity:.11; border-radius:50%; filter:blur(25px); background:var(--purple); z-index:1; pointer-events:none; }
+  .cornerGlow.one { top:-110px; left:-80px; }
+  .cornerGlow.two { bottom:-120px; right:-60px; background:var(--lime); }
+  
+  @media (pointer: coarse) {
+    #controls { opacity:.88; }
+    button { min-height:40px; }
+  }
+
+  @media (max-width: 1000px) and (orientation: landscape) {
+    .topline { top: max(12px, env(safe-area-inset-top)); font-size:10px; }
+    #dvd { width:clamp(118px, 20vw, 205px); }
+    #posterWrap { padding:12px 18px 64px; }
+    #poster { width:min(820px, 95vw); max-height:calc(100dvh - 92px); overflow-y:auto; padding:14px clamp(20px,4vw,42px); gap:clamp(5px,1.2dvh,10px); }
+    h1 { font-size:clamp(34px, 7.2vh, 66px); }
+    .eyebrow { font-size:clamp(8px, 1.6vh, 12px); }
+    .tagline { font-size:clamp(14px, 2.8vh, 23px); }
+    .vote { font-size:clamp(18px, 4.7vh, 34px); padding:6px 22px; }
+    .subvote { font-size:clamp(10px, 1.8vh, 14px); }
+    .candidate { font-size:clamp(8px, 1.5vh, 11px); }
+    #controls { left:50%; right:auto; transform:translateX(-50%); bottom:max(6px, env(safe-area-inset-bottom)); }
+    #hint { bottom:33px; font-size:9px; }
+    .progress { bottom:22px; }
+  }
+
+  @media (max-width: 600px) {
+    .frame { inset:8px; }
+    .frame:before,.frame:after { width:48px; height:3px; }
+    .topline { top:max(18px, env(safe-area-inset-top)); padding:0 18px; gap:7px; font-size:clamp(8px,2.3vw,10px); letter-spacing:.11em; line-height:1.5; }
+    .topline .dot { width:5px; height:5px; }
+    #dvd { width:clamp(116px, 39vw, 164px); border-width:1.5px; padding:8px 10px; gap:4px; border-radius:8px 16px 8px 16px; font-size:clamp(15px,4.5vw,21px); }
+    #hint { bottom:68px; padding:0 14px; font-size:9px; letter-spacing:.08em; line-height:1.5; }
+    .progress { bottom:59px; width:min(230px,58vw); }
+    #controls { left:50%; right:auto; bottom:max(8px, env(safe-area-inset-bottom)); transform:translateX(-50%); width:calc(100% - 20px); max-width:440px; display:flex; flex-wrap:wrap; justify-content:center; gap:5px; opacity:.92; }
+    button { min-height:36px; padding:8px 10px; font-size:10px; letter-spacing:0; white-space:nowrap; }
+    #posterWrap { padding:14px 12px 72px; align-items:center; }
+    #poster { width:100%; max-height:calc(100dvh - 100px); overflow-y:auto; overscroll-behavior:contain; padding:clamp(14px,4.5vw,23px) 15px; gap:clamp(7px,1.3vh,10px); }
+    #poster:before { top:4%; height:10%; }
+    #poster:after { bottom:5%; height:8%; }
+    .eyebrow { font-size:clamp(8px,2.25vw,11px); letter-spacing:.13em; line-height:1.4; }
+    h1 { font-size:clamp(34px,9.2vw,54px); line-height:.9; letter-spacing:-.07em; text-shadow:3px 3px 0 rgba(187,89,241,.65); overflow-wrap:normal; }
+    h1 span { text-shadow:3px 3px 0 rgba(187,89,241,.58); }
+    .slash { height:5px; }
+    .tagline { font-size:clamp(15px,4.2vw,21px); line-height:1.14; }
+    .vote { margin-top:1px; padding:8px 15px; font-size:clamp(19px,5.2vw,28px); line-height:1; }
+    .subvote { font-size:clamp(10px,2.8vw,13px); letter-spacing:.12em; }
+    .candidate { font-size:clamp(8px,2.3vw,10px); line-height:1.4; letter-spacing:.08em; }
+    #stage.revealed #hint, #stage.revealed .progress { opacity:0; }
+  }
+
+  @media (max-height: 520px) {
+    .topline { top:8px; }
+    #posterWrap { padding-top:8px; padding-bottom:58px; }
+    #poster { max-height:calc(100dvh - 74px); padding-top:10px; padding-bottom:10px; gap:5px; }
+    h1 { font-size:clamp(30px,7.5vh,54px); }
+    .tagline { font-size:clamp(13px,2.7vh,20px); }
+    .vote { font-size:clamp(17px,4.4vh,27px); padding:5px 14px; }
+    .subvote { font-size:10px; }
+    #hint { bottom:33px; }
+    .progress { bottom:22px; }
+    #controls { bottom:max(4px, env(safe-area-inset-bottom)); }
+  }
+  @media (prefers-reduced-motion: reduce) { .wash { animation:none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="fx" aria-hidden="true"></canvas><div class="wash"></div>
+  <div class="cornerGlow one"></div><div class="cornerGlow two"></div><div class="frame"></div>
+  <div class="topline"><span class="dot"></span> CONVITTO NAZIONALE T. CAMPANELLA <span class="dot"></span></div>
+  <div id="dvd" aria-label="Logo Pro Omnibus in movimento"><div class="dvd-main">PRO<br>OMNIBUS</div><div class="dvd-sub">LA TUA LISTA</div><div class="under"></div></div>
+  <div id="hint">ASPETTA L'ANGOLO PERFETTO <b>·</b> PRO OMNIBUS</div>
+  <div class="progress"><div id="progressFill"></div></div>
+  <div id="flash"></div>
+  <div id="posterWrap" aria-live="polite">
+    <div id="poster">
+      <div class="eyebrow">ELEZIONI <span>RAPPRESENTANTI D'ISTITUTO</span></div>
+      <h1>VOTA <span>PRO OMNIBUS</span></h1>
+      <div class="slash"></div>
+      <p class="tagline">La tua scuola. <em>La tua voce.</em><br>Il tuo futuro.</p>
+      <div class="vote">DOMANI SI VOTA</div>
+      <p class="subvote">FAI SENTIRE LA TUA VOCE</p>
+      <div class="candidate">JAMES CLIFFORD LEWIS · 3C — LICEO CLASSICO EUROPEO</div>
+    </div>
+  </div>
+  <div id="controls">
+    <button id="replay">↻ RICOMINCIA</button><button id="skip">MOSTRA LOCANDINA</button><button id="fullscreen">⛶ SCHERMO INTERO</button>
+  </div>
+</div>
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const canvas = document.getElementById('fx');
+  const ctx = canvas.getContext('2d');
+  const dvd = document.getElementById('dvd');
+  const posterWrap = document.getElementById('posterWrap');
+  const flash = document.getElementById('flash');
+  const hint = document.getElementById('hint');
+  const progressFill = document.getElementById('progressFill');
+  const replay = document.getElementById('replay');
+  const skip = document.getElementById('skip');
+  const fullscreen = document.getElementById('fullscreen');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const colors = ['#c8ff00','#bb59f1','#f7f6ff','#8f32d5'];
+  let x=70,y=95,vx=255,vy=190,last=0,startAt=0,running=true,shown=false,raf=0;
+  let width=0,height=0,bw=210,bh=122,trail=[],particles=[],bounceCount=0,readyToReveal=false,aiming=false;
+  function resize(){
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    width=stage.clientWidth;height=stage.clientHeight;
+    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+    canvas.style.width=width+'px';canvas.style.height=height+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+    const r=dvd.getBoundingClientRect();bw=r.width;bh=r.height;
+    x=Math.max(0,Math.min(x,width-bw));y=Math.max(0,Math.min(y,height-bh));
+    dvd.style.transform=`translate3d(${x}px,${y}px,0)`;
+    if(!particles.length){for(let i=0;i<(reduceMotion?22:64);i++) particles.push({x:Math.random()*width,y:Math.random()*height,r:.5+Math.random()*1.6,a:.12+Math.random()*.45,v:.12+Math.random()*.35,p:Math.random()*Math.PI*2});}
+  }
+  function burst(cx,cy,amount=24){
+    for(let i=0;i<amount;i++){
+      const a=Math.random()*Math.PI*2, sp=70+Math.random()*330;
+      particles.push({x:cx,y:cy, vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.45+Math.random()*.85,max:.45+Math.random()*.85,r:1.2+Math.random()*3.2,color:colors[(Math.random()*colors.length)|0],burst:true});
+    }
+  }
+  function drawBackground(dt,now){
+    ctx.clearRect(0,0,width,height);
+  
+    for(const p of particles){
+      if(p.burst){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.1,dt);p.vy*=Math.pow(.1,dt);p.life-=dt;}
+      else {p.y-=p.v*dt*12;p.x+=Math.sin(now*.0005+p.p)*dt*7;if(p.y<-5){p.y=height+5;p.x=Math.random()*width;}}
+      ctx.globalAlpha=p.burst?Math.max(0,p.life/p.max):p.a*(.7+.3*Math.sin(now*.001+p.p));
+      ctx.fillStyle=p.burst?p.color:(Math.sin(p.p)>0?'#bb59f1':'#c8ff00');
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    }
+    particles=particles.filter(p=>!p.burst||p.life>0);
+    ctx.globalAlpha=1;
+    
+    if(trail.length>1){
+      for(let i=1;i<trail.length;i++){
+        const a=i/trail.length, prev=trail[i-1],cur=trail[i];
+        ctx.strokeStyle=cur.color;ctx.globalAlpha=a*.34;ctx.lineWidth=1+a*5;ctx.lineCap='round';
+        ctx.beginPath();ctx.moveTo(prev.x,prev.y);ctx.lineTo(cur.x,cur.y);ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+  function reveal(){
+    if(shown)return;shown=true;running=false;stage.classList.add('revealed');
+    const r=dvd.getBoundingClientRect();
+    burst(r.left+bw/2,r.top+bh/2,100);
+   
+    flash.style.background='#c8ff00';flash.classList.remove('pop');void flash.offsetWidth;flash.classList.add('pop');
+    dvd.style.transition='transform .45s ease, opacity .2s ease';dvd.style.transform=`translate3d(${x}px,${y}px,0) scale(1.7) rotate(-6deg)`;
+    setTimeout(()=>{dvd.style.opacity='0';posterWrap.classList.add('show');hint.textContent='PRO OMNIBUS  ·  LA TUA SCELTA, LA TUA VOCE';progressFill.style.width='100%';},210);
+  }
+  function frame(now){
+    if(!last){last=now;startAt=now;}
+    let dt=Math.min((now-last)/1000,.035);last=now;
+    drawBackground(dt,now);
+    if(running){
+      const elapsed=(now-startAt)/1000;
+      progressFill.style.width=Math.min(100,elapsed/10*100)+'%';
+      if(elapsed>7.5)readyToReveal=true;
+      x+=vx*dt;y+=vy*dt;
+      let wallX=false,wallY=false;
+      if(x<=0){x=0;vx=Math.abs(vx);wallX=true;}
+      else if(x+bw>=width){x=width-bw;vx=-Math.abs(vx);wallX=true;}
+      if(y<=0){y=0;vy=Math.abs(vy);wallY=true;}
+      else if(y+bh>=height){y=height-bh;vy=-Math.abs(vy);wallY=true;}
+      if(wallX||wallY){
+        bounceCount++;
+        const rect={x:x+bw/2,y:y+bh/2};
+        burst(wallX?(x===0?0:width):rect.x,wallY?(y===0?0:height):rect.y,wallX&&wallY?55:17);
+        dvd.style.borderColor=colors[bounceCount%colors.length];
+        dvd.style.boxShadow=`0 0 26px ${colors[bounceCount%colors.length]}55, inset 0 0 25px ${colors[bounceCount%colors.length]}22`;
+        if(wallX&&wallY){
+          reveal();
+        } else if(readyToReveal && aiming){
+         
+          reveal();
+        } else if(readyToReveal && !aiming){
+          
+          if(wallX){
+            const timeToX = Math.max(0.15, (vx > 0 ? width-bw-x : x) / Math.abs(vx));
+            const distY = vy > 0 ? height-bh-y : y;
+            vy = Math.sign(vy || 1) * Math.max(90, Math.min(520, distY/timeToX));
+          } else {
+            const timeToY = Math.max(0.15, (vy > 0 ? height-bh-y : y) / Math.abs(vy));
+            const distX = vx > 0 ? width-bw-x : x;
+            vx = Math.sign(vx || 1) * Math.max(130, Math.min(580, distX/timeToY));
+          }
+          aiming=true;
+          hint.innerHTML='ANGOLO PERFETTO IN ARRIVO <b>·</b> PRO OMNIBUS';
+        }
+      }
+      if(!shown){
+        dvd.style.transform=`translate3d(${x}px,${y}px,0)`;
+        trail.push({x:x+bw/2,y:y+bh/2,color:colors[(bounceCount)%colors.length]});
+        if(trail.length>15)trail.shift();
+      }
+    }
+    
+    raf=requestAnimationFrame(frame);
+  }
+  function start(){
+    cancelAnimationFrame(raf);running=true;shown=false;stage.classList.remove('revealed');readyToReveal=false;aiming=false;bounceCount=0;last=0;startAt=0;
+    x=width*.13;y=height*.22;vx=width<650?205:285;vy=height<600?155:205;
+    if(Math.random()>.5)vx*=-1;if(Math.random()>.5)vy*=-1;
+    trail=[];particles=particles.filter(p=>!p.burst);
+    dvd.style.opacity='1';dvd.style.transition='none';dvd.style.borderColor='var(--purple)';
+    posterWrap.classList.remove('show');flash.classList.remove('pop');progressFill.style.width='0%';
+    hint.innerHTML="ASPETTA L'ANGOLO PERFETTO <b>·</b> PRO OMNIBUS";
+    resize();raf=requestAnimationFrame(frame);
+  }
+  replay.addEventListener('click',start);
+  skip.addEventListener('click',reveal);
+  fullscreen.addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch(e){hint.textContent='SCHERMO INTERO NON DISPONIBILE IN QUESTA FINESTRA';}});
+  window.addEventListener('resize',resize);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!shown&&running){last=0;cancelAnimationFrame(raf);raf=requestAnimationFrame(frame);}});
+  resize();raf=requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
+
+//* James Clifford Lewis *//
